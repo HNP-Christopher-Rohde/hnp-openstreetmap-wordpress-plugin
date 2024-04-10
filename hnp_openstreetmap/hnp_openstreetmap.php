@@ -14,21 +14,22 @@ defined('ABSPATH') or die('No script kiddies please!');
 
 // Function to enqueue Leaflet library
 function hnp_openmaps_enqueue_leaflet_scripts() {
+    // Define a version number for your CSS file
+    $version = '1.9.4';
+
     // Check if Leaflet CSS is not already enqueued
     if (!wp_style_is('leaflet-css')) {
-        // Enqueue Leaflet CSS
-        wp_enqueue_style('leaflet-css', plugin_dir_url(__FILE__) . 'leaflet/leaflet.css');
+        // Enqueue Leaflet CSS with the defined version
+        wp_enqueue_style('leaflet-css', plugin_dir_url(__FILE__) . 'leaflet/leaflet.css', array(), $version);
     }
 
     // Check if Leaflet JavaScript is not already enqueued
     if (!wp_script_is('leaflet-js')) {
-        // Enqueue Leaflet JavaScript
-        wp_enqueue_script('leaflet-js', plugin_dir_url(__FILE__) . 'leaflet/leaflet.js', array(), null, true);
+        // Enqueue Leaflet JavaScript with the defined version
+        wp_enqueue_script('leaflet-js', plugin_dir_url(__FILE__) . 'leaflet/leaflet.js', array(), $version, true);
     }
 }
 add_action('wp_enqueue_scripts', 'hnp_openmaps_enqueue_leaflet_scripts');
-
-
 
 // Function to display OpenStreetMap maps with a pin
 function hnp_openmaps_display_map_with_pin() {
@@ -86,20 +87,20 @@ function hnp_openmaps_display_map_with_pin() {
             // Add marker to the map
             $map .= "
                 L.marker([$latitude, $longitude]).addTo(hnp_openmaps_map).bindPopup('" . esc_js($clean_address) . "').bindTooltip('" . esc_js($marker_name) . "');
-                console.log('Geocoding successful for address:', " . json_encode($clean_address) . ");
+                console.log('Geocoding successful for address:', " . wp_json_encode($clean_address) . ");
             ";
         } else {
             // Error retrieving geocoding data
             error_log("Error retrieving geocoding data for address: $clean_address");
             $map .= "
-                console.log('Error retrieving geocoding data for address:', " . json_encode($clean_address) . ");
+                console.log('Error retrieving geocoding data for address:', " . wp_json_encode($clean_address) . ");
             ";
         }
     } else {
         // Error retrieving geocoding data
         error_log("Error retrieving geocoding data for address: $clean_address");
         $map .= "
-            console.log('Error retrieving geocoding data for address:', " . json_encode($clean_address) . ");
+            console.log('Error retrieving geocoding data for address:', " . wp_json_encode($clean_address) . ");
         ";
     }
 
@@ -334,17 +335,21 @@ function hnp_openmaps_validate_settings($input) {
 
 // Security measures: Nonce verification and save options
 function hnp_openmaps_register_security_options() {
-    // Add nonce verification
-    if (!isset($_POST['hnp_openmaps_osm_settings_nonce']) || !wp_verify_nonce($_POST['hnp_openmaps_osm_settings_nonce'], 'hnp_openmaps_osm_settings_nonce')) {
-        // Unauthorized request, do not save options
-        wp_die('Unauthorized request.'); // Output error message for unauthorized requests
+    // Check if the current page is our plugin options page
+    if (isset($_POST['option_page']) && $_POST['option_page'] == 'hnp_openmaps_osm_settings_group') {
+        // Check if the nonce is set and valid
+        if (!isset($_POST['hnp_openmaps_osm_settings_nonce']) || !wp_verify_nonce($_POST['hnp_openmaps_osm_settings_nonce'], 'hnp_openmaps_osm_settings_nonce')) {
+            // Unauthorized request, do not save options
+            wp_die('Unauthorized request.'); // Output error message for unauthorized requests
+        }
+
+        // Save options
+        update_option('hnp_openmaps_map_address', $_POST['hnp_openmaps_map_address']);
+        update_option('hnp_openmaps_map_name', $_POST['hnp_openmaps_map_name']);
+        update_option('hnp_openmaps_map_zoom', $_POST['hnp_openmaps_map_zoom']);
+        update_option('hnp_openmaps_map_style', $_POST['hnp_openmaps_map_style']);
+        update_option('hnp_openmaps_map_height', $_POST['hnp_openmaps_map_height']);
+        update_option('hnp_openmaps_map_width', $_POST['hnp_openmaps_map_width']);
     }
-    
-    // Save options
-    update_option('hnp_openmaps_map_address', $_POST['hnp_openmaps_map_address']);
-    update_option('hnp_openmaps_map_name', $_POST['hnp_openmaps_map_name']);
-    update_option('hnp_openmaps_map_zoom', $_POST['hnp_openmaps_map_zoom']);
-    update_option('hnp_openmaps_map_style', $_POST['hnp_openmaps_map_style']);
-    update_option('hnp_openmaps_map_height', $_POST['hnp_openmaps_map_height']);
-    update_option('hnp_openmaps_map_width', $_POST['hnp_openmaps_map_width']);
 }
+add_action('admin_init', 'hnp_openmaps_register_security_options');
